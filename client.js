@@ -156,12 +156,6 @@ window.__ModuleLoader__.load({
         this.pollTimer = null;
         this.diagnosed = false;
         this.approvalSince = 0; // 记录最近一次检测到 approval 的时间
-        this.knownSelectors = {
-          stopBtn: null,
-          loading: null,
-          messageList: null,
-          inputArea: null,
-        };
         this.init();
       }
 
@@ -218,7 +212,6 @@ window.__ModuleLoader__.load({
               const el = document.querySelector(sel);
               if (el) {
                 console.error("[DSH-PET] Container candidate:", sel, "children=", el.children.length);
-                this.knownSelectors.messageList = sel;
                 break;
               }
             } catch {}
@@ -273,16 +266,7 @@ window.__ModuleLoader__.load({
           const prevState = this.currentState;
           let newState = "idle";
 
-          // 策略 1：检测"停止生成"按钮（最可靠的 answering 指示器）
-          const hasStopBtn = this.checkStopButton();
-
-          // 策略 2：检测 loading / spinner
-          const hasLoading = this.checkLoading();
-
-          // 策略 3：检测输入框是否被禁用（发送后通常禁用直到回复完成）
-          const inputDisabled = this.checkInputDisabled();
-
-          // 策略 4：检测是否有待审批的 approval 面板
+          // 检测是否有待审批的 approval 面板
           const hasApproval = this.checkApproval();
           const now = Date.now();
           if (hasApproval) {
@@ -291,24 +275,25 @@ window.__ModuleLoader__.load({
           // approval 状态有 2 秒粘性：一旦检测到，即使短暂消失也保持
           const stickyApproval = this.approvalSince > 0 && now - this.approvalSince < 2000;
 
-          // 策略 5：检测是否正在回答（无停止按钮时备用）
-          const isAnswering = hasStopBtn || this.checkAnswering();
+          // 检测助手是否正在流式输出（[data-streaming] 由 AssistantMarkdown 渲染）
+          const isStreaming = this.checkStreaming();
+
+          // 检测回合是否进行中（停止按钮 = 回合运行且可中断）
+          const isBusy = this.checkBusy();
 
           // 状态推断（优先级：approval > answering > thinking > idle）
           if (hasApproval || stickyApproval) {
             newState = "approval"; // 有待审批请求，最高优先级
-          } else if (isAnswering) {
-            newState = "answering"; // AI 正在输出
-          } else if (hasLoading) {
-            newState = "thinking"; // 有 loading = 思考中
-          } else if (inputDisabled) {
-            newState = "thinking"; // 输入禁用且无 answering 特征 = 思考中
+          } else if (isStreaming) {
+            newState = "answering"; // AI 正在流式输出
+          } else if (isBusy) {
+            newState = "thinking"; // 回合进行中但尚未输出（分析/调用工具）
           }
 
           if (newState !== prevState) {
             console.error(
               "[DSH-PET] DOM State:", prevState, "->", newState,
-              "{approval:", hasApproval, ", sticky:", stickyApproval, ", answering:", isAnswering, ", loading:", hasLoading, ", inputDisabled:", inputDisabled, "}"
+              "{approval:", hasApproval, ", sticky:", stickyApproval, ", streaming:", isStreaming, ", busy:", isBusy, "}"
             );
             this.currentState = newState;
             this.onStateChange(newState);
@@ -318,99 +303,29 @@ window.__ModuleLoader__.load({
         }
       }
 
-      checkStopButton() {
+      isVisible(el) {
+        const style = window.getComputedStyle(el);
+        return style.display !== "none" && style.visibility !== "hidden";
+      }
+
+      // answering：助手流式渲染文本/推理时，AssistantMarkdown 根节点带 data-streaming 属性
+      checkStreaming() {
         try {
-          // 只查找包含 "stop" 或 "停止" 的按钮，忽略 "cancel"（太容易误匹配）
-          const stopKeywords = ["停止生成", "停止", "stop generating", "stop"];
-          const btns = document.querySelectorAll("button, [role='button']");
+          const els = document.querySelectorAll("[data-streaming]");
+          for (const el of els) {
+            if (this.isVisible(el)) return true;
+          }
+        } catch {}
+        return false;
+      }
+
+      // thinking：回合运行且可中断时，DSH 渲染纯图标的停止按钮（aria-label 无文本内容）
+      checkBusy() {
+        try {
+          const btns = document.querySelectorAll('button[aria-label="停止生成"], button[aria-label="Stop generating"]');
           for (const btn of btns) {
-            const text = (btn.innerText || btn.textContent || "").toLowerCase().trim();
-            if (stopKeywords.some((k) => text === k || text.startsWith(k + " "))) {
-              const style = window.getComputedStyle(btn);
-              if (style.display !== "none" && style.visibility !== "hidden") {
-                return true;
-              }
-            }
+            if (this.isVisible(btn)) return true;
           }
-        } catch {}
-        return false;
-      }
-
-      checkLoading() {
-        try {
-          // 限制在 main/chat 区域搜索，避免匹配到全局 loading
-          const scope = document.querySelector("main") || document.querySelector("[class*='chat']") || document.body;
-          const selectors = [
-            '[class*="loading"]',
-            '[class*="spinner"]',
-            '[class*="progress"]',
-            '[class*="typing"]',
-            '[class*="skeleton"]',
-            'svg[class*="spin"]',
-            'svg[class*="animate-spin"]',
-            '[class*="animate-pulse"]',
-          ];
-          for (const sel of selectors) {
-            try {
-              const el = scope.querySelector(sel);
-              if (el) {
-                const style = window.getComputedStyle(el);
-                if (style.display !== "none" && style.visibility !== "hidden") {
-                  return true;
-                }
-              }
-            } catch {}
-          }
-        } catch {}
-        return false;
-      }
-
-      checkInputDisabled() {
-        try {
-          // 只检测 DSH 的 composer 输入框（通常是 textarea 或 contenteditable）
-          const inputs = document.querySelectorAll("textarea, [contenteditable='true']");
-          for (const inp of inputs) {
-            // 排除设置面板等非 chat 区域的输入框
-            const inChat = inp.closest("[class*='chat'], [class*='composer'], main") !== null;
-            if (!inChat) continue;
-            if (inp.disabled || inp.readOnly) return true;
-            const style = window.getComputedStyle(inp);
-            if (style.pointerEvents === "none" || parseFloat(style.opacity) < 0.5) return true;
-          }
-        } catch {}
-        return false;
-      }
-
-      checkAnswering() {
-        try {
-          // 备用 answering 检测：只在输入框被禁用时运行
-          if (!this.checkInputDisabled()) return false;
-
-          // 检测消息列表末尾是否有明确的流式输出指示器
-          const msgSelectors = [
-            '[data-testid*="message"]',
-            '[class*="message-list"] > div',
-            '[class*="chat-list"] > div',
-          ];
-          let lastMsg = null;
-          for (const sel of msgSelectors) {
-            try {
-              const msgs = document.querySelectorAll(sel);
-              if (msgs.length > 0) {
-                lastMsg = msgs[msgs.length - 1];
-                break;
-              }
-            } catch {}
-          }
-          if (!lastMsg) return false;
-
-          // 严格检测：必须是包含闪烁光标或 "▌" 字符的元素
-          // 注意：[class*="cursor"] 太宽泛，改用精确匹配
-          const hasTypingIndicator = lastMsg.querySelector('[class*="typing-indicator"], [class*="cursor-blink"], [class*="stream-cursor"]') !== null;
-          if (hasTypingIndicator) return true;
-
-          const text = lastMsg.innerText || "";
-          if (text.includes("▌")) return true;
         } catch {}
         return false;
       }

@@ -2,6 +2,13 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（状态检测修复）
+
+- **修复状态检测全面失效**：harness 工作时桌宠不切换「编辑中」/thinking GIF。根因：DSH 停止按钮为纯图标按钮（文本在 aria-label）、CSS Modules 哈希类名使类名匹配失效、Lexical 输入框无 disabled 属性
+- **改用真实 DOM 契约**：`answering` = 可见 `[data-streaming]`；`thinking` = 可见 `button[aria-label="停止生成"/"Stop generating"]`；`approval` 逻辑不变
+- **依据**：解包 DSH `app.asar`，核实 `@deepseek-ai/dsh-client-ui-chat` / `dsh-client-ui-conversation` / `dsh-client-ui-approval` 前端源码
+- **新增** `spec/state-detection.md`；移除失效的 checkStopButton/checkLoading/checkInputDisabled/checkAnswering 启发式
+
 ### 2026-10-05
 
 - **重命名插件**：`dsh-kimi-pet` → `dsh-pet`，移除所有 kimi 相关标识

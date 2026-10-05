@@ -55,16 +55,19 @@ dsh-pet/
 
 ### 状态检测逻辑
 
-客户端通过 DOM 观察推断 DSH 会话状态：
+客户端通过 DOM 观察推断 DSH 会话状态。检测依据为 DSH 前端的真实 DOM 契约
+（`data-*` 属性 / `aria-label`，详见 `spec/state-detection.md`）：
 
 | 优先级 | 检测条件 | 状态 |
 |-------|---------|------|
-| 1 | `data-approval-key` 元素可见 或 "拒绝"+"允许一次" 按钮同时存在 | `approval` |
-| 2 | 按钮文本为 "停止生成"/"Stop"（精确匹配） | `answering` |
-| 3 | 输入框禁用 + 最后消息有 cursor/typing/▌ | `answering`（备用）|
-| 4 | chat 区域 loading/spinner 动画元素 | `thinking` |
-| 5 | chat 区域输入框禁用 | `thinking` |
-| 6 | 以上都不满足 | `idle` |
+| 1 | `[data-approval-key]` 元素可见，或「拒绝」+「允许一次」按钮同时存在（2 秒粘性） | `approval` |
+| 2 | 存在可见的 `[data-streaming]` 元素（AssistantMarkdown 流式渲染根节点） | `answering`（设置面板标签「编辑中」） |
+| 3 | 存在可见的 `button[aria-label="停止生成"]` / `button[aria-label="Stop generating"]`（回合运行且可中断时渲染） | `thinking` |
+| 4 | 以上都不满足 | `idle` |
+
+注意：DSH 使用 CSS Modules 哈希类名，停止按钮为纯图标按钮（无文本），
+输入框为 Lexical contenteditable——基于类名子串、按钮文本、输入框 disabled
+的旧检测方式均不可用（见 `debug.md` 第 8 条）。
 
 ## 运行与构建
 

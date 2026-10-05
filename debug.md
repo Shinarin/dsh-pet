@@ -65,3 +65,18 @@ function safeClassName(el) {
 1. 从 profile 中移除 link 配置
 2. 通过 `dsh plugin add github:Shinarin/dsh-pet` 安装
 3. 或 `dsh plugin add C:/Users/da270/.dsh/plugins/dsh-pet` 本地路径安装
+
+## 8. 状态检测全部失效：DSH 前端 DOM 与启发式假设不符
+
+**现象**：harness 工作（生成/编辑）时桌宠永远停在 idle，不切换到「编辑中」(answering) / thinking 的预设 GIF
+**根本原因**：旧检测逻辑基于三类假设，全部与 DSH 前端实际实现不符（已通过 `app.asar` 内 `@deepseek-ai/dsh-client-ui-*` 源码核实）：
+1. 停止按钮是**纯图标按钮**（内部只有 SVG），无文本内容——按 `innerText` 匹配「停止生成」永远失败；文本在 `aria-label` 上
+2. DSH 使用 CSS Modules 哈希类名（如 `RlGAzG_primary`）——`[class*="loading"/"spinner"/"typing"/"cursor"]` 子串匹配永远失败
+3. 输入框是 Lexical contenteditable div，忙碌时 `contenteditable="false"`，没有 `disabled`/`readOnly` 属性
+
+**解决方案**：改用 DSH 前端稳定的 `data-*` / `aria-label` 契约（spec/state-detection.md）：
+- `answering`：存在可见的 `[data-streaming]`（AssistantMarkdown 流式渲染根节点，`streaming=true` 时出现）
+- `thinking`：存在可见的 `button[aria-label="停止生成"]` / `button[aria-label="Stop generating"]`（回合运行且可中断时才渲染）
+- `approval`：`[data-approval-key]` 可见（原逻辑已正确，保留）
+
+**教训**：DOM 启发式检测必须先核实目标前端的**真实源码/运行时 DOM**，稳定契约是 `data-*` 属性和 `aria-label`，不是 CSS 类名（CSS Modules 哈希化）和按钮文本（图标按钮 + i18n）。
