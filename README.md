@@ -42,16 +42,18 @@ github:Shinarin/dsh-pet
 或使用命令行：
 
 ```bash
-dsh plugin add github:Shinarin/dsh-pet
+dsh plugin --profile desktop add github:Shinarin/dsh-pet
 ```
 
 ### 方式二：本地路径
 
 ```bash
-dsh plugin add <本仓库的本地路径>
+dsh plugin --profile desktop add <本仓库的绝对路径>
 ```
 
 注意：安装或更新后需**完全退出并重启 DSH**，插件方可生效。
+
+> **切换安装来源前请先彻底卸载**：若本机曾以本地路径（`link:`）方式安装过 dsh-pet，直接改装 GitHub 版本会触发 DSH 内置 pnpm 在 Windows 上的 junction 处理缺陷——替换过程会穿透目录联接并长时间挂起，导致安装失败。正确做法：先在设置 → 插件中卸载旧版本并重启 DSH，确认无残留后再安装新来源版本。
 
 ### 卸载
 

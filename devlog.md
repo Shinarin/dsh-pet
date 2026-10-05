@@ -2,6 +2,13 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（github: 安装失败排查与修复）
+
+- **排查 `github:Shinarin/dsh-pet` 在 DSH 桌面端安装失败**：逐层核对插件协议（install-spec 解析、git ls-remote 预检、兼容性检查、载荷完整性）全部通过；复现定位根因为 DSH 内置 pnpm 在 Windows 上替换 `link:` 遗留 junction 时穿透链接递归删除目标目录并挂起（详见 debug.md 第 10 条）
+- **止损**：终止残留 pnpm 进程，从部署副本克隆恢复工作副本被删的 `.git`，工作树内容零损失
+- **修复用户环境**：清理 desktop profile 的孤儿 junction 与 `dsh-pet_tmp_*` 暂存目录，`dsh plugin --profile desktop add github:Shinarin/dsh-pet` 端到端安装成功（4.9s，bundle 自动激活）
+- **README**：修正 CLI 示例为 `dsh plugin --profile desktop add ...`，新增「切换安装来源前请先彻底卸载」注意事项
+
 ### 2026-10-05（README 正式化与仓库瘦身）
 
 - **README 改为正式文风**，去除表情符号与口语化表达

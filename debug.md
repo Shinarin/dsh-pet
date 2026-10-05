@@ -92,3 +92,13 @@ function safeClassName(el) {
 4. 勿用裸 `[data-state="running"]`：ReasoningRow 也用 data-state，需 `[data-tool]` 前缀限定
 
 **教训**：「流式输出」只是 agent 活动的一种形态；检测「AI 在干活」要覆盖文本流式、reasoning 流式、工具执行三条路径。另外 ripgrep/Grep 默认遵守 .gitignore，搜索解包到 `.tmp/` 的 asar 源码必须 `include_ignored: true`，否则会误报"不存在"。
+
+## 10. link: 改装 github: 时 pnpm 穿透 junction 删除目标目录并挂起（Windows）
+
+**现象**：DSH 桌面端用 `github:Shinarin/dsh-pet` 安装失败；profile 日志（`profiles/<name>/.plugin-manager/logs/operation-*/pnpm.log`）停在 `Packages: +1 -1` 之后，没有 `Done in ...`，`node_modules` 下残留 `dsh-pet_tmp_*` 暂存目录。
+**根本原因**：profile 里存在同名包的 `link:` 安装遗留的 junction（`node_modules/dsh-pet -> <本地目录>`）。DSH 内置 pnpm 11.7.0 替换它时**不按 junction  unlink，而是解析 realpath 后递归删除目标目录内容**——在复现实验中把插件工作副本的 `.git` 删到只剩 `objects/`、`refs/`，进程挂起超过 4 分钟不退出，最终被插件管理器/用户打断，安装半途中止。
+**解决方案**：
+1. 先彻底移除旧来源：`dsh plugin --profile <name> remove <pkg>` 或在 UI 卸载，然后检查 `profiles/<name>/node_modules/` 下无残留 junction 和 `*_tmp_*` 目录（junction 要用 `cmd /c rmdir <name>` 删除，**禁止 `rm -rf`**——Git Bash 的 rm 会穿透 junction 删目标内容）；
+2. 再执行新来源安装：`dsh plugin --profile <name> add github:<owner>/<repo>`；
+3. 插件管理器日志在 `profiles/<name>/.plugin-manager/logs/`：`operation-*/pnpm.log` 是 pnpm 输出，`github-connection-*/git.log` 是 `git ls-remote` 预检（空文件 = 仓库可达）。
+**教训**：Windows 上凡是涉及 junction/符号链接的删除操作，先确认工具是否穿透链接；复现类实验**绝不**把 junction 指向有价值的目录（本次实验险些丢失工作副本的 git 历史，靠部署副本克隆恢复）。
