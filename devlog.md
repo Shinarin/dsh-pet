@@ -2,6 +2,13 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（README 正式化与仓库瘦身）
+
+- **README 改为正式文风**，去除表情符号与口语化表达
+- **.gitignore 排除 Agent 协作与本地文件**：`AGENTS.md`、`handoff/`、`scripts/`（早期 WebSocket 探测遗留）、`temp-test.txt`、`private.md`；仓库仅保留运行所需与开发文档
+- **开发文档脱敏**：development.md、debug.md 中的本机用户名路径替换为占位符
+- **同步 development.md**：状态检测表更新为 44.0.0 摸排后的新契约（旧表已过时）；目录结构标注本地不入库文件
+
 ### 2026-10-05（README 重写）
 
 - **重写 README.md**：补充状态-GIF 对应表（含最新 reasoning 归思考中规则）、交互说明（单击/双击/右键/拖动）、位置锚定说明、设置项详解表（如实标注「完成提醒」未接入触发）、自定义 GIF 建议、FAQ、修正「工作原理」为真实 DOM 契约（旧版残留 spinner/输入框禁用等失效描述）

@@ -1,4 +1,12 @@
 node_modules/
 *.log
+.tmp/
 .DS_Store
 Thumbs.db
+
+# 本地私有与 Agent 协作文件，不入库不 push
+AGENTS.md
+handoff/
+private.md
+temp-test.txt
+scripts/

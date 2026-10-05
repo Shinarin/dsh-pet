@@ -64,7 +64,7 @@ function safeClassName(el) {
 **解决方案**：
 1. 从 profile 中移除 link 配置
 2. 通过 `dsh plugin add github:Shinarin/dsh-pet` 安装
-3. 或 `dsh plugin add C:/Users/da270/.dsh/plugins/dsh-pet` 本地路径安装
+3. 或通过 `dsh plugin add <本仓库的本地路径>` 本地路径安装
 
 ## 8. 状态检测全部失效：DSH 前端 DOM 与启发式假设不符
 

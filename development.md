@@ -22,15 +22,17 @@ dsh-pet/
 ├── client.js             # 客户端入口：浮动宠物 UI + 设置面板
 ├── default-gifs/         # 内置默认 GIF（idle/thinking/answering/approval）
 ├── docs/
-│   └── settings.png      # 设置面板截图（来自原项目参考）
-├── scripts/
-│   ├── ws_probe.py       # WebSocket 探测脚本（原项目参考）
-│   ├── ws_probe_sv2.py
-│   └── ws_probe_v3.py
+│   └── settings.png      # 设置面板截图
+├── spec/                 # 行为规格：state-detection.md、overlay-position.md
 ├── development.md        # 本文件
 ├── devlog.md             # 开发日志
-├── debug.md              # 坑点记录
-└── handoff/              # 进度交接
+└── debug.md              # 坑点记录
+
+以下为本地文件，已加入 .gitignore，不入库不 push：
+├── AGENTS.md             # Agent 协作约束
+├── handoff/              # Agent 进度交接
+├── scripts/              # 早期 WebSocket 探测脚本（与 DSH 无关，仅本地参考）
+└── temp-test.txt         # 临时测试文件
 ```
 
 ## 核心模块职责
@@ -60,20 +62,22 @@ dsh-pet/
 
 | 优先级 | 检测条件 | 状态 |
 |-------|---------|------|
-| 1 | `[data-approval-key]` 元素可见，或「拒绝」+「允许一次」按钮同时存在（2 秒粘性） | `approval` |
-| 2 | 存在可见的 `[data-streaming]` 元素（AssistantMarkdown 流式渲染根节点） | `answering`（设置面板标签「编辑中」） |
-| 3 | 存在可见的 `button[aria-label="停止生成"]` / `button[aria-label="Stop generating"]`（回合运行且可中断时渲染） | `thinking` |
+| 1 | `[data-approval-key]` / `[data-question-key]` / `[data-plan-review-key]` 任一可见（2 秒粘性） | `approval` |
+| 2 | `div[data-streaming]`（文本流式）或 `[data-tool][data-state="running"/"preparing"]`（工具执行）任一可见 | `answering`（设置面板标签「编辑中」） |
+| 3 | `[data-chat-running]` 可见（session.running 全程存在）；停止按钮仅作旁证（输入框有草稿时消失） | `thinking` |
 | 4 | 以上都不满足 | `idle` |
 
-注意：DSH 使用 CSS Modules 哈希类名，停止按钮为纯图标按钮（无文本），
+注意：reasoning（深度思考）流式按产品规则归 `thinking`（排除法命中，无需单独检测）；
+纯工具调用的 assistant-step 不渲染 `data-streaming`，必须靠 `[data-tool][data-state]` 检测。
+DSH 使用 CSS Modules 哈希类名，停止按钮为纯图标按钮（无文本），
 输入框为 Lexical contenteditable——基于类名子串、按钮文本、输入框 disabled
-的旧检测方式均不可用（见 `debug.md` 第 8 条）。
+的旧检测方式均不可用（见 `debug.md` 第 8、9 条）。
 
 ## 运行与构建
 
 ### 本地开发
 
-1. 项目目录：`C:\Users\da270\.dsh\plugins\dsh-pet`
+1. 将仓库克隆到本地任意目录
 2. 直接修改代码
 3. **完全退出并重启 DSH** 使改动生效
 
@@ -86,7 +90,7 @@ dsh plugin add github:Shinarin/dsh-pet
 
 **方式 2：本地路径**
 ```
-dsh plugin add C:/Users/da270/.dsh/plugins/dsh-pet
+dsh plugin add <本仓库的本地路径>
 ```
 
 ### 重启后测试
