@@ -1,0 +1,7 @@
+# dsh-pet 插件 bundle patch
+# 将插件插入到 profile 的 layer 栈中
+- insert:
+    - id: dsh-pet
+      name: 'dsh-pet'
+      config:
+        enabled: true
