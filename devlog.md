@@ -2,6 +2,10 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（README 重写）
+
+- **重写 README.md**：补充状态-GIF 对应表（含最新 reasoning 归思考中规则）、交互说明（单击/双击/右键/拖动）、位置锚定说明、设置项详解表（如实标注「完成提醒」未接入触发）、自定义 GIF 建议、FAQ、修正「工作原理」为真实 DOM 契约（旧版残留 spinner/输入框禁用等失效描述）
+
 ### 2026-10-05（reasoning 归入思考中）
 
 - **规则调整**：reasoning（深度思考）流式输出从「编辑中」改归「思考中」——`checkProducing()` 移除 `[data-variant="think"][data-state="running"]`，该场景经排除法落到 thinking（`[data-chat-running]` 在场）；「编辑中」现在只覆盖文本流式输出与工具执行
