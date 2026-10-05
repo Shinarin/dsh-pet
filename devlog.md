@@ -2,6 +2,10 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（reasoning 归入思考中）
+
+- **规则调整**：reasoning（深度思考）流式输出从「编辑中」改归「思考中」——`checkProducing()` 移除 `[data-variant="think"][data-state="running"]`，该场景经排除法落到 thinking（`[data-chat-running]` 在场）；「编辑中」现在只覆盖文本流式输出与工具执行
+
 ### 2026-10-05（状态检测校准：全状态摸排）
 
 - **修复「写入/工具执行期间显示思考中 GIF」**：纯工具调用（写文件/编辑代码）期间 assistant-step 无可见文本块，DSH 不渲染 `[data-streaming]`（ui-chat:7681/7432），检测错误落到 thinking

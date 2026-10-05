@@ -12,8 +12,8 @@
 | 优先级 | 状态 | 含义 | 检测依据（DSH 前端真实 DOM 契约） |
 |-------|------|------|--------------------------------|
 | 1 | `approval` | 有待用户处理的交互（工具审批 / 提问 / 计划评审） | `[data-approval-key]`（approval:83）、`[data-question-key]`（user-questions:1007）、`[data-plan-review-key]`（user-questions:544）任一可见。检测到后保持 2 秒粘性，避免 React 重渲染闪烁 |
-| 2 | `answering`（设置面板标签「编辑中」） | AI 正在产出：文本流式输出、reasoning 流式、工具准备/执行中（写文件、编辑、跑命令） | 任一可见：`div[data-streaming]`（AssistantMarkdown 根，chat:5957）、`[data-variant="think"][data-state="running"]`（ReasoningRow，chat:5834-5835）、`[data-tool][data-state="running"]` 或 `[data-tool][data-state="preparing"]`（ToolRow，tool:278/1716-1720） |
-| 3 | `thinking` | 会话运行中但无活跃产出（等待首个 token、步骤间隙、模型重试、压缩等） | `[data-chat-running]` 可见（chat 视图尾部运行指示器，session.running 全程存在，chat:3920/5158）；停止按钮 `button[aria-label="停止生成"]` / `"Stop generating"` 作为旁证 |
+| 2 | `answering`（设置面板标签「编辑中」） | AI 正在产出：文本流式输出、工具准备/执行中（写文件、编辑、跑命令） | 任一可见：`div[data-streaming]`（AssistantMarkdown 根，chat:5957）、`[data-tool][data-state="running"]` 或 `[data-tool][data-state="preparing"]`（ToolRow，tool:278/1716-1720） |
+| 3 | `thinking` | 会话运行中但无文本/工具产出（等待首个 token、**reasoning 深度思考流式**、步骤间隙、模型重试、压缩等） | 排除法：`[data-chat-running]` 可见（chat 视图尾部运行指示器，session.running 全程存在，chat:3920/5158）且不满足 answering 条件；停止按钮 `button[aria-label="停止生成"]` / `"Stop generating"` 作为旁证。reasoning 流式（`[data-variant="think"][data-state="running"]`，chat:5834-5835）按用户规则归入此状态，无需单独检测 |
 | 4 | `idle` | 以上条件均不满足 | — |
 
 DSH 状态分层事实（摸排结论）：
@@ -43,7 +43,7 @@ DSH 状态分层事实（摸排结论）：
 - `new DshStateDetector(onStateChange: (state: "idle"|"thinking"|"answering"|"approval") => void)`
 - 内部检测方法（均返回 boolean）：
   - `checkApproval()` — `[data-approval-key]` / `[data-question-key]` / `[data-plan-review-key]` 可见
-  - `checkProducing()` — `div[data-streaming]` / `[data-variant="think"][data-state="running"]` / `[data-tool][data-state="running"|"preparing"]` 任一可见
+  - `checkProducing()` — `div[data-streaming]` / `[data-tool][data-state="running"|"preparing"]` 任一可见（reasoning 流式按产品规则归 thinking，不在此列）
   - `checkBusy()` — `[data-chat-running]` 可见，或停止按钮（aria-label 精确匹配）可见
 - 回调只在状态**变化**时触发；状态变化时输出 `[DSH-PET] DOM State` 日志（console.error 通道），含各信号布尔值。
 
@@ -52,7 +52,7 @@ DSH 状态分层事实（摸排结论）：
 1. 空闲时打开 DSH → 显示 idle GIF。
 2. 发送消息 → 助手未开始输出（等首 token）时显示 thinking GIF；开始流式输出文本后切换为 answering GIF；回合结束回到 idle。
 3. AI 调用工具写文件/编辑代码/执行命令期间（无文本流式输出）→ 显示 answering（「编辑中」预设）GIF，而不是 thinking。
-4. reasoning（深度思考）流式输出期间 → 显示 answering GIF。
+4. reasoning（深度思考）流式输出期间 → 显示 thinking GIF（产品规则：reasoning 归「思考中」）。
 5. 触发工具审批 / 用户提问 / 计划评审 → 显示 approval GIF；处理后 2 秒内回到回合对应状态。
 6. 回合进行中在输入框打字（草稿非空、停止按钮消失）→ 仍保持 thinking/answering，不掉回 idle。
 7. 中英文 locale 下上述切换均生效（选择器不依赖文案，`data-*` 为主）。

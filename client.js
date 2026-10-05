@@ -316,15 +316,16 @@ window.__ModuleLoader__.load({
         return style.display !== "none" && style.visibility !== "hidden";
       }
 
-      // answering：AI 正在产出。契约（DSH 44.0.0 源码核实）：
+      // answering：AI 正在产出文本或执行工具。契约（DSH 44.0.0 源码核实）：
       // - div[data-streaming]：AssistantMarkdown 流式渲染根节点（ui-chat:5957，step status==="running"）
-      // - [data-variant="think"][data-state="running"]：ReasoningRow 思考流式中（ui-chat:5834）
       // - [data-tool][data-state="running"|"preparing"]：工具执行中/参数生成中（ui-tool:278/1716）
       // 注意不要用裸 [data-state="running"]：ReasoningRow 也用 data-state，需带 [data-tool] 限定。
+      // reasoning 流式（[data-variant="think"][data-state="running"]）按产品规则归 thinking，
+      // 刻意不在此检测——此时 [data-chat-running] 存在，排除法自然落到 thinking。
       checkProducing() {
         try {
           const els = document.querySelectorAll(
-            'div[data-streaming], [data-variant="think"][data-state="running"], [data-tool][data-state="running"], [data-tool][data-state="preparing"]'
+            'div[data-streaming], [data-tool][data-state="running"], [data-tool][data-state="preparing"]'
           );
           for (const el of els) {
             if (this.isVisible(el)) return true;
