@@ -271,7 +271,7 @@ window.__ModuleLoader__.load({
           const prevState = this.currentState;
           let newState = "idle";
 
-          // 检测是否有待审批的 approval 面板
+          // 检测是否有待用户处理的交互（审批/提问/计划评审）
           const hasApproval = this.checkApproval();
           const now = Date.now();
           if (hasApproval) {
@@ -280,25 +280,28 @@ window.__ModuleLoader__.load({
           // approval 状态有 2 秒粘性：一旦检测到，即使短暂消失也保持
           const stickyApproval = this.approvalSince > 0 && now - this.approvalSince < 2000;
 
-          // 检测助手是否正在流式输出（[data-streaming] 由 AssistantMarkdown 渲染）
-          const isStreaming = this.checkStreaming();
+          // 检测 AI 是否正在产出（文本流式 / reasoning 流式 / 工具准备或执行中）。
+          // 注意：纯工具调用（写文件/编辑代码）期间 assistant-step 无可见文本块，
+          // DSH 不渲染 [data-streaming]（ui-chat:7681/7432），必须另查 [data-tool][data-state]。
+          const isProducing = this.checkProducing();
 
-          // 检测回合是否进行中（停止按钮 = 回合运行且可中断）
+          // 检测会话是否运行中（[data-chat-running] 全程存在；
+          // 停止按钮在输入框有草稿时消失，见 ui-conversation:17407，仅作旁证）
           const isBusy = this.checkBusy();
 
           // 状态推断（优先级：approval > answering > thinking > idle）
           if (hasApproval || stickyApproval) {
-            newState = "approval"; // 有待审批请求，最高优先级
-          } else if (isStreaming) {
-            newState = "answering"; // AI 正在流式输出
+            newState = "approval"; // 有待审批/提问/评审，最高优先级
+          } else if (isProducing) {
+            newState = "answering"; // AI 正在产出（输出文本或执行工具）
           } else if (isBusy) {
-            newState = "thinking"; // 回合进行中但尚未输出（分析/调用工具）
+            newState = "thinking"; // 会话运行中但无活跃产出（等首 token/步骤间隙/重试）
           }
 
           if (newState !== prevState) {
             console.error(
               "[DSH-PET] DOM State:", prevState, "->", newState,
-              "{approval:", hasApproval, ", sticky:", stickyApproval, ", streaming:", isStreaming, ", busy:", isBusy, "}"
+              "{approval:", hasApproval, ", sticky:", stickyApproval, ", producing:", isProducing, ", busy:", isBusy, "}"
             );
             this.currentState = newState;
             this.onStateChange(newState);
@@ -313,10 +316,16 @@ window.__ModuleLoader__.load({
         return style.display !== "none" && style.visibility !== "hidden";
       }
 
-      // answering：助手流式渲染文本/推理时，AssistantMarkdown 根节点带 data-streaming 属性
-      checkStreaming() {
+      // answering：AI 正在产出。契约（DSH 44.0.0 源码核实）：
+      // - div[data-streaming]：AssistantMarkdown 流式渲染根节点（ui-chat:5957，step status==="running"）
+      // - [data-variant="think"][data-state="running"]：ReasoningRow 思考流式中（ui-chat:5834）
+      // - [data-tool][data-state="running"|"preparing"]：工具执行中/参数生成中（ui-tool:278/1716）
+      // 注意不要用裸 [data-state="running"]：ReasoningRow 也用 data-state，需带 [data-tool] 限定。
+      checkProducing() {
         try {
-          const els = document.querySelectorAll("[data-streaming]");
+          const els = document.querySelectorAll(
+            'div[data-streaming], [data-variant="think"][data-state="running"], [data-tool][data-state="running"], [data-tool][data-state="preparing"]'
+          );
           for (const el of els) {
             if (this.isVisible(el)) return true;
           }
@@ -324,25 +333,29 @@ window.__ModuleLoader__.load({
         return false;
       }
 
-      // thinking：回合运行且可中断时，DSH 渲染纯图标的停止按钮（aria-label 无文本内容）
+      // thinking：会话运行中。[data-chat-running] 是 chat 视图的全局运行指示器，
+      // session.running 全程存在（ui-chat:3920/5158）；停止按钮仅在输入框为空时渲染，
+      // 有草稿时主按钮变为「排队发送」（ui-conversation:17407），故只作旁证。
       checkBusy() {
         try {
-          const btns = document.querySelectorAll('button[aria-label="停止生成"], button[aria-label="Stop generating"]');
-          for (const btn of btns) {
-            if (this.isVisible(btn)) return true;
+          const els = document.querySelectorAll(
+            '[data-chat-running], button[aria-label="停止生成"], button[aria-label="Stop generating"]'
+          );
+          for (const el of els) {
+            if (this.isVisible(el)) return true;
           }
         } catch {}
         return false;
       }
 
+      // approval：待用户处理的交互。除工具审批 [data-approval-key]（ui-approval:83）外，
+      // 提问 [data-question-key] 与计划评审 [data-plan-review-key]（ui-user-questions:1007/544）
+      // 同样需要用户操作，一并归入 approval 状态。
       checkApproval() {
         try {
-          const approvalEl = document.querySelector('[data-approval-key]');
-          if (approvalEl) {
-            const style = window.getComputedStyle(approvalEl);
-            if (style.display !== "none" && style.visibility !== "hidden") {
-              return true;
-            }
+          const panels = document.querySelectorAll("[data-approval-key], [data-question-key], [data-plan-review-key]");
+          for (const el of panels) {
+            if (this.isVisible(el)) return true;
           }
           const btns = document.querySelectorAll("button, [role='button']");
           let hasReject = false;

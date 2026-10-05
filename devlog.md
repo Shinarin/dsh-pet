@@ -2,6 +2,16 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（状态检测校准：全状态摸排）
+
+- **修复「写入/工具执行期间显示思考中 GIF」**：纯工具调用（写文件/编辑代码）期间 assistant-step 无可见文本块，DSH 不渲染 `[data-streaming]`（ui-chat:7681/7432），检测错误落到 thinking
+- **DSH 44.0.0 全状态摸排**（解包 app.asar 核实）：assistant-step = running/settled/interrupted；tool-call = preparing/running/stopped/error/ok（`[data-tool][data-state]`，tool:278）；turn = open/closed；session.running 经 `[data-chat-running]` 全程可查（chat:3920）
+- **检测契约修订**（spec/state-detection.md）：
+  - `answering` = AI 正在产出：`div[data-streaming]`（文本流式）或 `[data-variant="think"][data-state="running"]`（reasoning 流式）或 `[data-tool][data-state="running"/"preparing"]`（工具执行）任一可见
+  - `thinking` = 会话运行但无活跃产出：`[data-chat-running]` 可见为主，停止按钮仅作旁证（输入框有草稿时停止按钮消失，conv:17407）
+  - `approval` 扩展覆盖 `[data-question-key]` / `[data-plan-review-key]`（提问/计划评审同样需要用户操作）
+- **已知边缘（接受）**：Trajectory 标签页激活时 chat DOM 缺席表现为 idle；自动压缩（maintenance）期间 session.running=false 表现为 idle；嵌入子会话标记会合并反映
+
 ### 2026-10-05（位置锚定修复）
 
 - **修复重启后桌宠不显示**：旧位置以绝对像素 `left/top` 保存，窗口尺寸变化后桌宠落在视口外，需拉大窗口才可见

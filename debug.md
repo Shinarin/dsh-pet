@@ -80,3 +80,15 @@ function safeClassName(el) {
 - `approval`：`[data-approval-key]` 可见（原逻辑已正确，保留）
 
 **教训**：DOM 启发式检测必须先核实目标前端的**真实源码/运行时 DOM**，稳定契约是 `data-*` 属性和 `aria-label`，不是 CSS 类名（CSS Modules 哈希化）和按钮文本（图标按钮 + i18n）。
+
+## 9. 状态检测分层不全：工具执行期间 `data-streaming` 缺席
+
+**现象**：AI 调用工具写文件/编辑代码时，桌宠显示 thinking（思考中）而非「编辑中」预设 GIF
+**根本原因**：检测把 `answering` 等同于「文本流式输出」（`[data-streaming]`），但纯工具调用的 assistant-step **无可见文本块，节点不渲染**（ui-chat:7681、7432-7436），`data-streaming` 缺席 → 落到 thinking。DSH 的实际状态是分层的：assistant-step（running/settled/interrupted，chat:7602）与 tool-call（preparing/running/stopped/error/ok，tool:278）各自独立。
+**解决方案**（DSH 44.0.0 源码摸排后修订，见 spec/state-detection.md）：
+1. `answering` 改判「正在产出」：`div[data-streaming]`（文本）∨ `[data-variant="think"][data-state="running"]`（reasoning）∨ `[data-tool][data-state="running"/"preparing"]`（工具）
+2. `thinking` 主信号改用 `[data-chat-running]`（session.running 全程存在，chat:3920）；**停止按钮不可靠**——输入框有草稿时主按钮变「排队发送」，停止按钮消失（ui-conversation:17407）
+3. `approval` 扩展 `[data-question-key]` / `[data-plan-review-key]`
+4. 勿用裸 `[data-state="running"]`：ReasoningRow 也用 data-state，需 `[data-tool]` 前缀限定
+
+**教训**：「流式输出」只是 agent 活动的一种形态；检测「AI 在干活」要覆盖文本流式、reasoning 流式、工具执行三条路径。另外 ripgrep/Grep 默认遵守 .gitignore，搜索解包到 `.tmp/` 的 asar 源码必须 `include_ignored: true`，否则会误报"不存在"。
