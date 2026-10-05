@@ -12,14 +12,31 @@ DSH 桌宠插件 —— 兼容 Web UI 和桌面版。
 
 ## 安装
 
-将本插件放入 DSH 插件目录：
+### 方式 1：GitHub 地址（推荐）
+
+在 DSH 设置 → 插件 → 添加插件中输入：
+
+```
+github:Shinarin/dsh-pet
+```
+
+或命令行：
 
 ```bash
-# Desktop 版
-cp -r dsh-pet ~/.dsh/plugins/
-
-# 然后在 DSH 设置 → 插件 中启用，或手动编辑 patch
+dsh plugin add github:Shinarin/dsh-pet
 ```
+
+### 方式 2：本地路径
+
+```bash
+dsh plugin add C:/Users/da270/.dsh/plugins/dsh-pet
+```
+
+安装后**完全退出并重启 DSH**使插件生效。
+
+### 卸载
+
+在 DSH 设置 → 插件中找到 dsh-pet，点击卸载即可。
 
 ## 配置
 

@@ -463,6 +463,11 @@ window.__ModuleLoader__.load({
         });
         this.loadConfig();
         this.preloadDefaultGifs();
+        // 应用初始显示状态（createPetOverlay 已读取 localStorage，这里再确认一次）
+        const shouldShow = localStorage.getItem(VISIBILITY_KEY) !== "false";
+        if (!shouldShow) {
+          this.hide();
+        }
       }
 
       async preloadDefaultGifs() {
@@ -878,6 +883,12 @@ window.__ModuleLoader__.load({
         setState(next);
         if (updates.visible !== undefined) {
           localStorage.setItem(VISIBILITY_KEY, next.visible ? "true" : "false");
+          // 双重保险：直接调用控制器 + 派发事件
+          const ctrl = window.__DSH_PET_CONTROLLER__;
+          if (ctrl) {
+            if (next.visible) ctrl.show();
+            else ctrl.hide();
+          }
           window.dispatchEvent(new CustomEvent("dsh-pet:visible-changed", { detail: next.visible }));
         }
         const cfg = {
@@ -1087,6 +1098,9 @@ window.__ModuleLoader__.load({
         console.error('[DSH-PET] overlay created');
         const controller = new PetController(overlay);
         console.error('[DSH-PET] controller created, state=' + controller.currentState);
+
+        // 将控制器挂载到全局，供设置面板直接调用（比 CustomEvent 更可靠）
+        window.__DSH_PET_CONTROLLER__ = controller;
 
         // 监听配置变化
         window.addEventListener("dsh-pet:config-changed", (e) => {
