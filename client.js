@@ -61,8 +61,8 @@ window.__ModuleLoader__.load({
         z-index: 99999;
         width: 220px;
         height: 220px;
-        bottom: 120px;
-        right: 220px;
+        bottom: 200px;
+        right: 100px;
         user-select: none;
         -webkit-user-select: none;
         cursor: grab;

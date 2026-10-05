@@ -2,6 +2,10 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（默认位置调整）
+
+- **默认锚点改为窗口右下角**：未拖动过时，桌宠默认距右边缘 100px、距下边缘 200px（原 bottom:120px/right:220px）；新增 `spec/overlay-position.md`
+
 ### 2026-10-05（状态检测修复）
 
 - **修复状态检测全面失效**：harness 工作时桌宠不切换「编辑中」/thinking GIF。根因：DSH 停止按钮为纯图标按钮（文本在 aria-label）、CSS Modules 哈希类名使类名匹配失效、Lexical 输入框无 disabled 属性
