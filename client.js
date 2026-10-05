@@ -12,6 +12,7 @@ window.__ModuleLoader__.load({
     const STATES = ["thinking", "answering", "approval", "idle"];
     const DEFAULT_SCALE = 1.0;
     const POS_KEY = "dsh-pet:position";
+    const DEFAULT_POS = { right: 100, bottom: 200 }; // 默认锚点：窗口右下角，左移 100px、上移 200px
     const CONFIG_KEY = "dsh-pet:config";
 
     // ── 工具 ──
@@ -33,10 +34,14 @@ window.__ModuleLoader__.load({
       localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
     }
 
+    // 位置统一存「距右下角的偏移量」{right, bottom}；旧版绝对像素 {x, y} 在此识别，应用时迁移
     function loadPosition() {
       try {
         const raw = localStorage.getItem(POS_KEY);
-        if (raw) return JSON.parse(raw);
+        if (!raw) return null;
+        const pos = JSON.parse(raw);
+        if (pos && typeof pos.right === "number" && typeof pos.bottom === "number") return pos;
+        if (pos && typeof pos.x === "number" && typeof pos.y === "number") return { legacy: pos };
       } catch {}
       return null;
     }
@@ -61,8 +66,8 @@ window.__ModuleLoader__.load({
         z-index: 99999;
         width: 220px;
         height: 220px;
-        bottom: 200px;
-        right: 100px;
+        bottom: ${DEFAULT_POS.bottom}px;
+        right: ${DEFAULT_POS.right}px;
         user-select: none;
         -webkit-user-select: none;
         cursor: grab;
@@ -370,6 +375,7 @@ window.__ModuleLoader__.load({
         this.dragging = false;
         this.dragOffset = { x: 0, y: 0 };
         this.defaultGifUrls = {}; // state -> blob URL
+        this.position = loadPosition() || { ...DEFAULT_POS }; // {right, bottom} 右下角偏移
         this.setupDrag();
         this.setupClick();
         this.setupImgError();
@@ -442,14 +448,30 @@ window.__ModuleLoader__.load({
           if (data) this.customGifs[state] = data;
         }
         this.render();
-        // 恢复位置
-        const pos = loadPosition();
-        if (pos) {
-          this.overlay.container.style.left = pos.x + "px";
-          this.overlay.container.style.top = pos.y + "px";
-          this.overlay.container.style.right = "auto";
-          this.overlay.container.style.bottom = "auto";
+        // 恢复位置（右下角锚定 + 视口钳制；旧 {x,y} 存档在此迁移）
+        this.applyPosition();
+      }
+
+      // 应用右下角偏移定位：始终锚定窗口右下角，并钳制在视口内保证可见
+      applyPosition(pos) {
+        const el = this.overlay.container;
+        let p = pos || this.position;
+        if (p.legacy) {
+          // 旧格式 {x, y}（绝对 left/top）按当前视口换算为右下角偏移
+          p = {
+            right: window.innerWidth - (p.legacy.x + el.offsetWidth),
+            bottom: window.innerHeight - (p.legacy.y + el.offsetHeight),
+          };
         }
+        const maxRight = Math.max(0, window.innerWidth - el.offsetWidth);
+        const maxBottom = Math.max(0, window.innerHeight - el.offsetHeight);
+        const right = Math.max(0, Math.min(p.right, maxRight));
+        const bottom = Math.max(0, Math.min(p.bottom, maxBottom));
+        this.position = { right, bottom };
+        el.style.right = right + "px";
+        el.style.bottom = bottom + "px";
+        el.style.left = "auto";
+        el.style.top = "auto";
       }
 
       applyScale(scale) {
@@ -457,6 +479,8 @@ window.__ModuleLoader__.load({
         const size = 220 * this.scale;
         this.overlay.container.style.width = size + "px";
         this.overlay.container.style.height = size + "px";
+        // 尺寸变化后重新钳制位置，保持右下角锚点且不出视口
+        if (this.position) this.applyPosition();
       }
 
       setState(state) {
@@ -541,21 +565,18 @@ window.__ModuleLoader__.load({
           if (!this.dragging) return;
           this.dragging = false;
           el.style.cursor = "grab";
-          savePosition({ x: el.offsetLeft, y: el.offsetTop });
+          // 松手位置换算为右下角偏移并回归锚定，窗口变化时跟随右下角
+          const rect = el.getBoundingClientRect();
+          this.position = {
+            right: window.innerWidth - rect.right,
+            bottom: window.innerHeight - rect.bottom,
+          };
+          savePosition(this.position);
+          this.applyPosition();
         });
         window.addEventListener("resize", () => {
-          const rect = el.getBoundingClientRect();
-          const maxX = window.innerWidth - el.offsetWidth;
-          const maxY = window.innerHeight - el.offsetHeight;
-          let x = Math.max(0, Math.min(rect.left, maxX));
-          let y = Math.max(0, Math.min(rect.top, maxY));
-          if (x !== rect.left || y !== rect.top) {
-            el.style.left = x + "px";
-            el.style.top = y + "px";
-            el.style.right = "auto";
-            el.style.bottom = "auto";
-            savePosition({ x, y });
-          }
+          // right/bottom 锚定下桌宠自动跟随右下角，这里只需在窗口缩小时钳回视口
+          this.applyPosition();
         });
       }
 
