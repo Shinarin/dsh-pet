@@ -102,3 +102,10 @@ function safeClassName(el) {
 2. 再执行新来源安装：`dsh plugin --profile <name> add github:<owner>/<repo>`；
 3. 插件管理器日志在 `profiles/<name>/.plugin-manager/logs/`：`operation-*/pnpm.log` 是 pnpm 输出，`github-connection-*/git.log` 是 `git ls-remote` 预检（空文件 = 仓库可达）。
 **教训**：Windows 上凡是涉及 junction/符号链接的删除操作，先确认工具是否穿透链接；复现类实验**绝不**把 junction 指向有价值的目录（本次实验险些丢失工作副本的 git 历史，靠部署副本克隆恢复）。
+
+## 11. reasoning 流式期间误判为 answering：AssistantMarkdown 根对内容类型不敏感
+
+**现象**：AI 深度思考（reasoning）流式输出时，桌宠显示「编辑中」（answering）GIF 而非「思考中」。
+**根本原因**：`div[data-streaming]` 是 AssistantMarkdown 根的流式标记（ui-chat:5957），只要所属 step 在流式就存在，**无论流式内容是正文还是 reasoning**——reasoning 块本就渲染在 AssistantMarkdown 内部（ui-chat:5919-5930）。此前把 `[data-variant="think"]` 从 answering 判据中移除后，`div[data-streaming]` 单独成立，reasoning 期间照样命中。
+**解决方案**：`checkProducing()` 中 `div[data-streaming]` 必须附加「内含 `[data-variant="think"]` 子树之外的可见正文块（p/pre/li/h1-h6/blockquote/table/img/hr）」才算 answering（client.js `hasAnswerContent()`）。注意 ReasoningRow 折叠摘要的 `span[data-streaming]`（ui-chat:5812）是 span 不参与 div 匹配；展开的思考正文在 think 子树内被 closest 排除。
+**教训**：容器级流式标记 ≠ 内容类型；检测「正在回答」要区分流式的是正文还是推理。

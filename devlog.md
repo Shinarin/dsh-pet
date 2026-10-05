@@ -2,6 +2,11 @@
 
 ## v1.0.0（当前）
 
+### 2026-10-05（reasoning 误判修复）
+
+- **修复深度思考（reasoning）流式期间误显示「编辑中」GIF**：`div[data-streaming]`（AssistantMarkdown 根）对流式内容类型不敏感，纯 reasoning 期间也存在；现要求该容器内含 think 行之外的可见正文块才算 answering，否则经 `[data-chat-running]` 排除法落到 thinking（spec/state-detection.md 同步修订，坑点见 debug.md 第 11 条）
+- 已热修 desktop profile 中 github 安装的副本，重启 DSH 即可验证；push 后以正式版覆盖
+
 ### 2026-10-05（github: 安装失败排查与修复）
 
 - **排查 `github:Shinarin/dsh-pet` 在 DSH 桌面端安装失败**：逐层核对插件协议（install-spec 解析、git ls-remote 预检、兼容性检查、载荷完整性）全部通过；复现定位根因为 DSH 内置 pnpm 在 Windows 上替换 `link:` 遗留 junction 时穿透链接递归删除目标目录并挂起（详见 debug.md 第 10 条）

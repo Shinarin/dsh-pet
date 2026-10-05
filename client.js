@@ -280,9 +280,11 @@ window.__ModuleLoader__.load({
           // approval 状态有 2 秒粘性：一旦检测到，即使短暂消失也保持
           const stickyApproval = this.approvalSince > 0 && now - this.approvalSince < 2000;
 
-          // 检测 AI 是否正在产出（文本流式 / reasoning 流式 / 工具准备或执行中）。
+          // 检测 AI 是否正在产出（文本流式 / 工具准备或执行中）。
           // 注意：纯工具调用（写文件/编辑代码）期间 assistant-step 无可见文本块，
-          // DSH 不渲染 [data-streaming]（ui-chat:7681/7432），必须另查 [data-tool][data-state]。
+          // DSH 不渲染 [data-streaming]（ui-chat:7681/7432），必须另查 [data-tool][data-state]；
+          // 纯 reasoning 流式期间 AssistantMarkdown 根虽带 data-streaming，但无 think 行之外的正文，
+          // checkProducing 内部会排除（见 spec/state-detection.md）。
           const isProducing = this.checkProducing();
 
           // 检测会话是否运行中（[data-chat-running] 全程存在；
@@ -317,20 +319,39 @@ window.__ModuleLoader__.load({
       }
 
       // answering：AI 正在产出文本或执行工具。契约（DSH 44.0.0 源码核实）：
-      // - div[data-streaming]：AssistantMarkdown 流式渲染根节点（ui-chat:5957，step status==="running"）
       // - [data-tool][data-state="running"|"preparing"]：工具执行中/参数生成中（ui-tool:278/1716）
-      // 注意不要用裸 [data-state="running"]：ReasoningRow 也用 data-state，需带 [data-tool] 限定。
-      // reasoning 流式（[data-variant="think"][data-state="running"]）按产品规则归 thinking，
-      // 刻意不在此检测——此时 [data-chat-running] 存在，排除法自然落到 thinking。
+      //   注意不要用裸 [data-state="running"]：ReasoningRow 也用 data-state，需带 [data-tool] 限定。
+      // - div[data-streaming]：AssistantMarkdown 流式渲染根节点（ui-chat:5957），但它对内容类型
+      //   不敏感——纯 reasoning 流式期间同样存在（reasoning 块渲染在其内部，ui-chat:5919-5930），
+      //   因此必须要求其内部含有 think 行（[data-variant="think"]，ui-chat:5834）之外的可见正文块。
+      // reasoning 流式按产品规则归 thinking，此时 [data-chat-running] 存在，排除法自然落到 thinking。
       checkProducing() {
         try {
-          const els = document.querySelectorAll(
-            'div[data-streaming], [data-tool][data-state="running"], [data-tool][data-state="preparing"]'
+          const tools = document.querySelectorAll(
+            '[data-tool][data-state="running"], [data-tool][data-state="preparing"]'
           );
-          for (const el of els) {
+          for (const el of tools) {
             if (this.isVisible(el)) return true;
           }
+          const streaming = document.querySelectorAll("div[data-streaming]");
+          for (const root of streaming) {
+            if (this.isVisible(root) && this.hasAnswerContent(root)) return true;
+          }
         } catch {}
+        return false;
+      }
+
+      // 判断流式容器内是否有 reasoning 之外的可见正文（文本块/图片等）。
+      // ReasoningRow 折叠摘要的 span[data-streaming]（ui-chat:5812）不在此列；
+      // 展开的思考正文位于 [data-variant="think"] 子树内，被 closest 排除。
+      hasAnswerContent(root) {
+        const blocks = root.querySelectorAll(
+          "p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table, img, hr"
+        );
+        for (const el of blocks) {
+          if (el.closest('[data-variant="think"]')) continue;
+          if (this.isVisible(el)) return true;
+        }
         return false;
       }
 
